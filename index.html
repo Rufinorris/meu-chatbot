@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>R&P Agent Mockup</title>
+    <!-- Incluindo Tailwind CSS para estilização rápida -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Incluindo Font Awesome para ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* Importando uma fonte para o corpo da página */
+        @import url('https://fonts.googleapis.com/css2?family=Epilogue:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Epilogue', sans-serif;
+            background-color: #ffffff;
+        }
+
+        /* Estilo da bolha de chat do Agente */
+        .bubble-agent {
+            position: relative;
+            background-color: white;
+            border-radius: 1.5rem;
+            border-top-left-radius: 0;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        /* Estilo da bolha de chat do Usuário */
+        .bubble-user {
+            position: relative;
+            background-color: #00233c;
+            color: white;
+            border-radius: 1.5rem;
+            border-top-right-radius: 0;
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+
+        /* Animação para o indicador de carregamento */
+        .loading-dot {
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .loading-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+        .loading-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
+        .loading-dot:nth-child(3) {
+            animation-delay: 0s;
+        }
+
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: scale(0);
+            }
+            40% {
+                transform: scale(1.0);
+            }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+
+    <div class="bg-[#f6fbfe] rounded-2xl shadow-xl w-full max-w-xl mx-4 p-6 flex flex-col h-[70vh]">
+        <!-- Cabeçalho da Aplicação -->
+        <div class="flex items-center justify-between border-b pb-4 mb-4">
+            <h1 class="text-2xl font-bold text-gray-800">R&P Agent</h1>
+            <span class="text-sm text-gray-500">Olá, Usuário!</span>
+        </div>
+
+        <!-- Área de Chat -->
+        <div id="chat-container" class="flex-grow overflow-y-auto space-y-4 pr-2">
+            <!-- As mensagens do chat serão inseridas aqui via JavaScript -->
+        </div>
+
+        <!-- Área de Input -->
+        <div class="mt-4 flex space-x-2">
+            <input id="user-input" type="text" placeholder="Pergunte algo ao R&P Agent..." class="flex-grow rounded-full border-2 border-gray-300 p-3 pl-5 focus:outline-none focus:ring-2 focus:ring-[#00233c] transition-colors">
+            <button id="send-button" class="bg-[#00233c] text-white rounded-full p-2 hover:bg-[#003456] transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#00233c]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        // A URL do seu webhook no n8n foi atualizada
+        const n8nWebhookUrl = 'https://rufinoai.app.n8n.cloud/webhook/chat';
+
+        // Função para adicionar uma mensagem ao chat
+        function addMessage(text, sender) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `flex items-start space-x-2 ${sender === 'user' ? 'justify-end' : ''}`;
+
+            const avatarHtml = sender === 'user'
+                ? `<img src="https://placehold.co/32x32/1e40af/ffffff?text=G" alt="Avatar do usuário" class="h-8 w-8 rounded-full">`
+                : `<img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">`;
+
+            const messageHtml = `
+                <div class="${sender === 'user' ? 'bg-[#00233c] text-white bubble-user' : 'bg-white text-gray-800 bubble-agent'} p-3 shadow-xl max-w-[80%]">
+                    <p>${text}</p>
+                </div>
+            `;
+
+            if (sender === 'user') {
+                messageWrapper.innerHTML = messageHtml + avatarHtml;
+            } else {
+                messageWrapper.innerHTML = avatarHtml + messageHtml;
+            }
+
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Função para adicionar o indicador de carregamento
+        function addLoadingIndicator() {
+            const loadingHtml = `
+                <div id="loading-indicator" class="flex items-start space-x-2">
+                    <img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">
+                    <div class="bg-white text-gray-800 p-3 shadow-xl max-w-[80%] bubble-agent flex flex-col">
+                        <div class="flex space-x-1 p-2">
+                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
+                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
+                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Função para remover o indicador de carregamento
+        function removeLoadingIndicator() {
+            const loadingIndicator = document.getElementById('loading-indicator');
+            if (loadingIndicator) {
+                loadingIndicator.remove();
+            }
+        }
+
+        // Função para enviar a mensagem
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            // Adiciona a mensagem do usuário na tela
+            addMessage(message, 'user');
+            userInput.value = '';
+
+            // Adiciona o indicador de carregamento
+            addLoadingIndicator();
+
+            try {
+                // Faz a requisição para o webhook do n8n
+                const response = await fetch(n8nWebhookUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                // Converte a resposta para texto ou JSON, dependendo do que o n8n retorna
+                const responseData = await response.json();
+                removeLoadingIndicator();
+                addMessage(responseData.message || responseData.text, 'agent');
+
+            } catch (error) {
+                console.error('Erro ao comunicar com o n8n:', error);
+                removeLoadingIndicator();
+                addMessage('Ops! Houve um erro ao se conectar. Tente novamente mais tarde.', 'agent');
+            }
+        }
+
+        // Escutando os eventos do usuário
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+
+</body>
+</html>
