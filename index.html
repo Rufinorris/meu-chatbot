@@ -85,117 +85,127 @@
 
     </div>
 
-    <script>
-        const chatContainer = document.getElementById('chat-container');
-        const userInput = document.getElementById('user-input');
-        const sendButton = document.getElementById('send-button');
+<script>
+    const chatContainer = document.getElementById('chat-container');
+    const userInput = document.getElementById('user-input');
+    const sendButton = document.getElementById('send-button');
 
-        // A URL do seu webhook no n8n
-        const n8nWebhookUrl = 'https://rufinoai.app.n8n.cloud/webhook/chat';
+    const n8nWebhookUrl = 'https://rufinoai.app.n8n.cloud/webhook/chat';
 
-        // URL da sua página hospedada no GitHub Pages
-        const githubPagesUrl = 'https://rufinorris.github.io/meu-chatbot/';
+    // --- NOVO: INÍCIO DA LÓGICA DE SESSÃO ---
+    // Função para obter ou criar um ID de sessão único para a aba do navegador
+    function getSessionId() {
+        let sessionId = sessionStorage.getItem('chatbotSessionId');
+        if (!sessionId) {
+            // Se não existir, cria um ID novo e simples
+            sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+            sessionStorage.setItem('chatbotSessionId', sessionId);
+        }
+        return sessionId;
+    }
 
-        // Função para adicionar uma mensagem ao chat
-        function addMessage(text, sender) {
-            const messageWrapper = document.createElement('div');
-            messageWrapper.className = `flex items-start space-x-2 ${sender === 'user' ? 'justify-end' : ''}`;
+    // Pega o ID da sessão atual
+    const sessionID = getSessionId();
+    // --- NOVO: FIM DA LÓGICA DE SESSÃO ---
 
-            const avatarHtml = sender === 'user'
-                ? `<img src="https://placehold.co/32x32/1e40af/ffffff?text=G" alt="Avatar do usuário" class="h-8 w-8 rounded-full">`
-                : `<img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">`;
 
-            const messageHtml = `
-                <div class="${sender === 'user' ? 'bg-[#00233c] text-white bubble-user' : 'bg-white text-gray-800 bubble-agent'} p-3 shadow-xl max-w-[80%]">
-                    <p>${text}</p>
-                </div>
-            `;
+    // Função para adicionar uma mensagem ao chat
+    function addMessage(text, sender) {
+        const messageWrapper = document.createElement('div');
+        messageWrapper.className = `flex items-start space-x-2 ${sender === 'user' ? 'justify-end' : ''}`;
 
-            if (sender === 'user') {
-                messageWrapper.innerHTML = messageHtml + avatarHtml;
-            } else {
-                messageWrapper.innerHTML = avatarHtml + messageHtml;
-            }
+        const avatarHtml = sender === 'user'
+            ? `<img src="https://placehold.co/32x32/1e40af/ffffff?text=G" alt="Avatar do usuário" class="h-8 w-8 rounded-full">`
+            : `<img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">`;
 
-            chatContainer.appendChild(messageWrapper);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+        const messageHtml = `
+            <div class="${sender === 'user' ? 'bg-[#00233c] text-white bubble-user' : 'bg-white text-gray-800 bubble-agent'} p-3 shadow-xl max-w-[80%]">
+                <p>${text}</p>
+            </div>
+        `;
+
+        if (sender === 'user') {
+            messageWrapper.innerHTML = messageHtml + avatarHtml;
+        } else {
+            messageWrapper.innerHTML = avatarHtml + messageHtml;
         }
 
-        // Função para adicionar o indicador de carregamento
-        function addLoadingIndicator() {
-            const loadingHtml = `
-                <div id="loading-indicator" class="flex items-start space-x-2">
-                    <img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">
-                    <div class="bg-white text-gray-800 p-3 shadow-xl max-w-[80%] bubble-agent flex flex-col">
-                        <div class="flex space-x-1 p-2">
-                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
-                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
-                            <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
-                        </div>
+        chatContainer.appendChild(messageWrapper);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Função para adicionar o indicador de carregamento
+    function addLoadingIndicator() {
+        const loadingHtml = `
+            <div id="loading-indicator" class="flex items-start space-x-2">
+                <img src="https://placehold.co/32x32/10b981/ffffff?text=AI" alt="Avatar do agente" class="h-8 w-8 rounded-full">
+                <div class="bg-white text-gray-800 p-3 shadow-xl max-w-[80%] bubble-agent flex flex-col">
+                    <div class="flex space-x-1 p-2">
+                        <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
+                        <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
+                        <div class="w-2 h-2 bg-gray-500 rounded-full loading-dot"></div>
                     </div>
                 </div>
-            `;
-            chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            </div>
+        `;
+        chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Função para remover o indicador de carregamento
+    function removeLoadingIndicator() {
+        const loadingIndicator = document.getElementById('loading-indicator');
+        if (loadingIndicator) {
+            loadingIndicator.remove();
         }
+    }
 
-        // Função para remover o indicador de carregamento
-        function removeLoadingIndicator() {
-            const loadingIndicator = document.getElementById('loading-indicator');
-            if (loadingIndicator) {
-                loadingIndicator.remove();
-            }
+    // Função para enviar a mensagem
+    async function sendMessage() {
+        const message = userInput.value.trim();
+        if (message === '') return;
+
+        addMessage(message, 'user');
+        userInput.value = '';
+        addLoadingIndicator();
+
+        try {
+            const response = await fetch(n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                // --- ALTERADO: Envia a mensagem E o ID da sessão ---
+                body: JSON.stringify({ message: message, sessionID: sessionID })
+            });
+
+            const responseData = await response.json();
+            removeLoadingIndicator();
+            // A resposta do seu fluxo agora está dentro de um objeto "message"
+            addMessage(responseData.message || responseData.text, 'agent');
+
+        } catch (error) {
+            console.error('Erro ao comunicar com o n8n:', error);
+            removeLoadingIndicator();
+            addMessage('Ops! Houve um erro ao se conectar. Tente novamente mais tarde.', 'agent');
         }
+    }
 
-        // Função para enviar a mensagem
-        async function sendMessage() {
-            const message = userInput.value.trim();
-            if (message === '') return;
-
-            // Adiciona a mensagem do usuário na tela
-            addMessage(message, 'user');
-            userInput.value = '';
-
-            // Adiciona o indicador de carregamento
-            addLoadingIndicator();
-
-            try {
-                // Faz a requisição para o webhook do n8n
-                const response = await fetch(n8nWebhookUrl, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Origin': githubPagesUrl // Adiciona o cabeçalho de origem
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-
-                // Converte a resposta para texto ou JSON, dependendo do que o n8n retorna
-                const responseData = await response.json();
-                removeLoadingIndicator();
-                addMessage(responseData.message || responseData.text, 'agent');
-
-            } catch (error) {
-                console.error('Erro ao comunicar com o n8n:', error);
-                removeLoadingIndicator();
-                addMessage('Ops! Houve um erro ao se conectar. Tente novamente mais tarde.', 'agent');
-            }
+    // Escutando os eventos do usuário
+    sendButton.addEventListener('click', sendMessage);
+    userInput.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            sendMessage();
         }
-
-        // Escutando os eventos do usuário
-        sendButton.addEventListener('click', sendMessage);
-        userInput.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter') {
-                sendMessage();
-            }
-        });
-    </script>
+    });
+</script>
 
 </body>
 </html>
 
 </body>
 </html>
+
 
 
 
